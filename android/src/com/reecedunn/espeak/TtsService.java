@@ -1,4 +1,5 @@
 /*
+ * Copyright (C) 2024 Bill Dengler
  * Copyright (C) 2022 Beka Gozalishvili
  * Copyright (C) 2012-2015 Reece H. Dunn
  * Copyright (C) 2011 Google Inc.
@@ -69,6 +70,7 @@ public class TtsService extends TextToSpeechService {
     private SynthesisCallback mCallback;
 
     private final Map<String, Voice> mAvailableVoices = new HashMap<String, Voice>();
+    private final Map<String, Voice> mVariantCache = new HashMap<String, Voice>();
     protected Voice mMatchingVoice = null;
 
     private BroadcastReceiver mOnLanguagesDownloaded = null;
@@ -152,6 +154,13 @@ public class TtsService extends TextToSpeechService {
             for (Voice voice : mAvailableVoices.values()) {
                 switch (voice.match(query)) {
                     case TextToSpeech.LANG_COUNTRY_VAR_AVAILABLE:
+                        // #970: Sometimes, onGetDefaultVoiceNameFor is called
+                        // with a language, but without a country or variant
+                        // (probably due to partial SSML from the system).
+                        // If this is the first full variant we've seen for
+                        //  this language, cache it for future lookup.
+                        if (!mVariantCache.containsKey(language))
+                            mVariantCache.put(language, voice);
                         return new Pair<>(voice, TextToSpeech.LANG_COUNTRY_VAR_AVAILABLE);
                     case TextToSpeech.LANG_COUNTRY_AVAILABLE:
                         countryVoice = voice;
@@ -172,9 +181,25 @@ public class TtsService extends TextToSpeechService {
     }
 
     private Pair<Voice, Integer> getDefaultVoiceFor(String language, String country, String variant) {
+        // #970: Sometimes, onGetDefaultVoiceNameFor is called with a
+        // language, but without a country or variant (probably due to partial
+        // SSML from the system). If this is the case, and we've seen this
+        // language before, return the first seen full variant.
+        if (
+            (country == null || country.length() == 0)
+            && (variant == null || variant.length() == 0)
+            && mVariantCache.containsKey(language)
+        )
+            return new Pair<>(
+                mVariantCache.get(language),
+                TextToSpeech.LANG_AVAILABLE
+            );
+
         final Pair<Voice, Integer> match = findVoice(language, country, variant);
         switch (match.second) {
             case TextToSpeech.LANG_AVAILABLE:
+                // Some language codes don't map exactly to eSpeak voices.
+                // Set a sensible default country.
                 if (language.equals("fr") || language.equals("fra")) {
                     return new Pair<>(findVoice(language, "FRA", "").first, match.second);
                 }
