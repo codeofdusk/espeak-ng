@@ -187,7 +187,10 @@ public class TtsService extends TextToSpeechService {
                 TextToSpeech.LANG_AVAILABLE
             );
 
-        final Pair<Voice, Integer> match = findVoice(language, country, variant);
+        if (language == "en" || language == "eng")
+            final Pair<Voice, Integer> match = findVoice(language, "GBR", "");
+        else
+            final Pair<Voice, Integer> match = findVoice(language, country, variant);
         switch (match.second) {
             case TextToSpeech.LANG_AVAILABLE:
                 // Some language codes don't map exactly to eSpeak voices.
