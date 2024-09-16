@@ -179,14 +179,8 @@ public class TtsService extends TextToSpeechService {
     }
 
     private Pair<Voice, Integer> getDefaultVoiceFor(String language, String country, String variant) {
-        // #970: Sometimes, getDefaultVoiceFor is called with a language, but
-        // without a country or variant
-        // (probably due to partial SSML from the system). If this is the case,
-        // and we've seen this language before, return the last known
-        // full variant.
         if (
-            (country == null || country.length() == 0)
-            && (variant == null || variant.length() == 0)
+            language != null && mVariantCache.containsKey(language)
         )
             return new Pair<>(
                 mVariantCache.get(language),
@@ -214,7 +208,6 @@ public class TtsService extends TextToSpeechService {
                 }
                 return new Pair<>(findVoice(language, country, "").first, match.second);
             default:
-//cactus
                 return match;
         }
     }
